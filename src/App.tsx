@@ -49,22 +49,21 @@ function App() {
       });
   }, []);
   return (
-    <div className='min-h-screen bg-slate-900 text-white p-8'>
+    <div className='min-h-screen bg-slate-50 text-white p-8'>
       <h1 className='text-3xl text-center mb-8 text-blue-400 font-bold'>
         DataPulse Dashboard
       </h1>
-      <div className='bg-slate-800 p-6 rounded-xl shadow-lg mb-8 flex justify-center border border-slate-700'>
+      <div className='bg-white p-6 rounded-xl shadow-md mb-8 border border-slate-200 w-full max-w-4xl mx-auto'>
         <svg
           ref={svgRef}
-          width='300'
-          height='150'
-          className='bg-slate-900 rounded border border-slate-700'></svg>
+          viewBox='0 0 300 150'
+          className='w-full h-auto bg-white'></svg>
       </div>
       <div className='grid grid-cols-1 gap-4 max-w-2xl mx-auto'>
         {productos.map((p) => (
           <div
             key={p.id}
-            className='bg-slate-800 p-4 rounded-lg shadow-md border border-slate-700'>
+            className='bg-white p-4 rounded-lg shadow-md border border-slate-700'>
             <p className='font-bold text-lg'>{p.title}</p>
             <p className='text-blue-400 font-mono'>${p.price}</p>
           </div>
