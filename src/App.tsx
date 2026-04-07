@@ -4,7 +4,7 @@ import * as d3 from 'd3';
 interface Producto {
   id: number;
   title: string;
-  price?: number;
+  price: number;
   category: string;
 }
 
@@ -17,13 +17,21 @@ function App() {
     if (productos.length > 0 && svgRef.current) {
       const svg = d3.select(svgRef.current);
 
+      svg.selectAll('*').remove();
+
+      const width = 300;
+      const height = 150;
+      const barPadding = 5;
+      const barWidth = width / productos.length - barPadding;
+
       svg
-        .selectAll('circle')
-        .data([productos[0]])
-        .join('circle')
-        .attr('cx', 150)
-        .attr('cy', 75)
-        .attr('r', (d) => d.price / 10)
+        .selectAll('rect')
+        .data(productos)
+        .join('rect')
+        .attr('x', (d, i) => i * (barWidth + barPadding)) // Posición X basada en el índice
+        .attr('y', (d) => height - d.price / 10)
+        .attr('width', barWidth)
+        .attr('height', (d) => d.price / 10)
         .attr('fill', '#60a5fa');
     }
   }, [productos]);
