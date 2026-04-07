@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import * as d3 from 'd3';
 
 interface Producto {
   id: number;
@@ -9,6 +10,23 @@ interface Producto {
 
 function App() {
   const [productos, setProductos] = useState<Producto[]>([]);
+
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (productos.length > 0 && svgRef.current) {
+      const svg = d3.select(svgRef.current);
+
+      svg
+        .selectAll('circle')
+        .data([productos[0]])
+        .join('circle')
+        .attr('cx', 150)
+        .attr('cy', 75)
+        .attr('r', (d) => d.price / 10)
+        .attr('fill', '#60a5fa');
+    }
+  }, [productos]);
 
   useEffect(() => {
     fetch('https://fakestoreapi.com/products?limit=5')
@@ -23,7 +41,13 @@ function App() {
       <h1 className='text-3xl text-center mb-8 text-blue-400 font-bold'>
         DataPulse Dashboard
       </h1>
-
+      <div className='bg-slate-800 p-6 rounded-xl shadow-lg mb-8 flex justify-center border border-slate-700'>
+        <svg
+          ref={svgRef}
+          width='300'
+          height='150'
+          className='bg-slate-900 rounded border border-slate-700'></svg>
+      </div>
       <div className='grid grid-cols-1 gap-4 max-w-2xl mx-auto'>
         {productos.map((p) => (
           <div
