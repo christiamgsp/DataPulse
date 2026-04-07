@@ -36,7 +36,9 @@ function App() {
         .attr('y', (d) => height - d.price / 10)
         .attr('width', barWidth)
         .attr('height', (d) => d.price / 10)
-        .attr('fill', '#60a5fa');
+        .attr('fill', (d) => {
+          return d.rating.count > 200 ? '#36C055' : '#60a5fa';
+        });
     }
   }, [productos]);
 
@@ -49,7 +51,7 @@ function App() {
       });
   }, []);
   return (
-    <div className='min-h-screen bg-slate-50 text-white p-8'>
+    <div className='min-h-screen bg-slate-50 text-slate-800 p-8'>
       <h1 className='text-3xl text-center mb-8 text-blue-400 font-bold'>
         DataPulse Dashboard
       </h1>
