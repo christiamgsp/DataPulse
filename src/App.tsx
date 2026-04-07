@@ -6,6 +6,10 @@ interface Producto {
   title: string;
   price: number;
   category: string;
+  rating: {
+    rate: number;
+    count: number;
+  };
 }
 
 function App() {
@@ -28,7 +32,7 @@ function App() {
         .selectAll('rect')
         .data(productos)
         .join('rect')
-        .attr('x', (d, i) => i * (barWidth + barPadding)) // Posición X basada en el índice
+        .attr('x', (_, i) => i * (barWidth + barPadding))
         .attr('y', (d) => height - d.price / 10)
         .attr('width', barWidth)
         .attr('height', (d) => d.price / 10)
