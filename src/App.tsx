@@ -16,10 +16,9 @@ interface Producto {
 
 function App() {
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [busqueda, setBusqueda] = useState(''); // Estado para el buscador
+  const [busqueda, setBusqueda] = useState('');
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Lógica de filtrado: Se ejecuta cada vez que 'busqueda' o 'productos' cambian
   const productosFiltrados = productos.filter((p) =>
     p.title.toLowerCase().includes(busqueda.toLowerCase())
   );
@@ -45,6 +44,7 @@ function App() {
         .range([margin.left, width - margin.right])
         .padding(0.2);
 
+      // Eje con color adaptado a modo oscuro
       const yAxis = d3
         .axisLeft(yScale)
         .ticks(5)
@@ -53,7 +53,8 @@ function App() {
         .append('g')
         .attr('transform', `translate(${margin.left},0)`)
         .call(yAxis)
-        .attr('font-size', '6px');
+        .attr('font-size', '6px')
+        .attr('color', '#94a3b8'); // Color slate-400 para que se vea en oscuro
 
       svg
         .selectAll('rect')
@@ -64,14 +65,13 @@ function App() {
         .attr('height', 0)
         .attr('width', xScale.bandwidth())
         .attr('fill', (d) =>
-          d.price < 100 ? '#ef4444' : d.price <= 300 ? '#3b82f6' : '#22c55e'
+          d.price < 100 ? '#f87171' : d.price <= 300 ? '#60a5fa' : '#4ade80'
         )
         .transition()
         .duration(500)
         .attr('y', (d) => yScale(d.price))
         .attr('height', (d) => height - margin.bottom - yScale(d.price));
 
-      // Tooltip interactivo
       svg
         .selectAll('rect')
         .on('mouseenter', (event, d) => {
@@ -93,85 +93,75 @@ function App() {
       .then((data) => setProductos(data));
   }, []);
 
-  // Función para mostrar detalles (esto lo podrías convertir en un Modal mañana)
   const verDetalles = (p: Producto) => {
-    alert(`
-      PRODUCTO: ${p.title}
-      ---------------------------
-      ESTADÍSTICAS:
-      - Unidades vendidas: ${p.rating.count}
-      - Valoración: ${p.rating.rate} / 5
-      - Descripción: ${p.description.substring(0, 100)}...
-    `);
+    alert(
+      `PRODUCTO: ${p.title}\n\nVendidos: ${p.rating.count}\nValoración: ${p.rating.rate}/5\n\n${p.description}`
+    );
   };
 
   return (
-    <div className='min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8'>
+    // 'dark' activa el modo oscuro para los hijos
+    <div className='dark min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 md:p-8 transition-colors duration-500'>
       <div
         id='tooltip'
         className='absolute opacity-0 bg-slate-800 text-white p-2 rounded shadow-lg pointer-events-none text-xs z-50'></div>
 
-      <header className='max-w-7xl mx-auto mb-10 text-center'>
-        <h1 className='text-4xl font-black text-slate-900 mb-6'>
-          DataPulse <span className='text-blue-600'>Pro</span>
+      <header className='max-w-5xl mx-auto mb-8 text-center'>
+        <h1 className='text-3xl font-black mb-2'>
+          DataPulse <span className='text-blue-500'>Pro</span>
         </h1>
-
-        {/* BUSCADOR */}
-        <div className='max-w-md mx-auto relative'>
-          <input
-            type='text'
-            placeholder='Buscar producto por nombre...'
-            className='w-full p-4 pl-12 rounded-2xl border border-slate-200 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all'
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
-          <span className='absolute left-4 top-4 opacity-30'>🔍</span>
-        </div>
+        <p className='text-slate-500 dark:text-slate-400 text-sm italic'>
+          Premium Analytics Dashboard
+        </p>
       </header>
 
-      <main className='max-w-7xl mx-auto'>
-        {/* Gráfico que reacciona a la búsqueda */}
-        <section className='bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-10'>
-          <h2 className='text-lg font-bold mb-4'>Análisis del Filtro Actual</h2>
+      <main className='max-w-5xl mx-auto flex flex-col items-center'>
+        {/* GRÁFICO MÁS PEQUEÑO */}
+        <section className='w-full max-w-2xl bg-slate-50 dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 mb-6 shadow-xl'>
+          <h2 className='text-sm font-bold mb-4 px-2 opacity-70'>
+            Rendimiento de Precios
+          </h2>
           <svg
             ref={svgRef}
             viewBox='0 0 300 150'
             className='w-full h-auto'></svg>
         </section>
 
-        {/* Grid de productos filtrados */}
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6'>
+        {/* BUSCADOR DEBAJO DEL GRÁFICO */}
+        <div className='w-full max-w-md mb-12 relative group'>
+          <input
+            type='text'
+            placeholder='Filtrar catálogo...'
+            className='w-full p-3 pl-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white'
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+          <span className='absolute left-3 top-3.5 opacity-40'>🔍</span>
+        </div>
+
+        {/* GRID DE PRODUCTOS */}
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full'>
           {productosFiltrados.map((p) => (
             <div
               key={p.id}
-              className='bg-white rounded-2xl border border-slate-200 p-4 flex flex-col hover:shadow-xl transition-all group'>
-              <div className='h-40 flex justify-center mb-4'>
-                <img
-                  src={p.image}
-                  className='max-h-full group-hover:scale-110 transition-transform'
-                  alt=''
-                />
+              className='bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 flex flex-col hover:border-blue-500 transition-colors'>
+              <div className='h-32 flex justify-center mb-4 bg-white rounded-lg p-2'>
+                <img src={p.image} className='max-h-full' alt='' />
               </div>
-              <h3 className='font-bold text-sm h-10 overflow-hidden mb-2'>
+              <h3 className='font-bold text-xs h-8 overflow-hidden mb-2 line-clamp-2'>
                 {p.title}
               </h3>
-              <div className='flex justify-between items-end mt-auto'>
-                <p className='text-xl font-black'>${p.price}</p>
+              <div className='flex justify-between items-center mt-auto'>
+                <p className='text-lg font-black text-blue-500'>${p.price}</p>
                 <button
                   onClick={() => verDetalles(p)}
-                  className='bg-blue-600 text-white text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-slate-900 transition-colors'>
-                  DETALLES
+                  className='bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-blue-600 hover:text-white transition-all'>
+                  INFO
                 </button>
               </div>
             </div>
           ))}
         </div>
-
-        {productosFiltrados.length === 0 && (
-          <p className='text-center text-slate-400 mt-10'>
-            No se encontraron productos con ese nombre.
-          </p>
-        )}
       </main>
     </div>
   );
