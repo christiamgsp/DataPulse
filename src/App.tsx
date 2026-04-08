@@ -19,8 +19,10 @@ function App() {
   const [busqueda, setBusqueda] = useState('');
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const productosFiltrados = productos.filter((p) =>
-    p.title.toLowerCase().includes(busqueda.toLowerCase())
+  const productosFiltrados = productos.filter(
+    (p) =>
+      p.title.toLowerCase().includes(busqueda.toLowerCase()) ||
+      p.category.toLowerCase().includes(busqueda.toLowerCase())
   );
 
   useEffect(() => {
@@ -42,9 +44,8 @@ function App() {
         .scaleBand()
         .domain(productosFiltrados.map((_, i) => i.toString()))
         .range([margin.left, width - margin.right])
-        .padding(0.2);
+        .padding(0.3);
 
-      // Eje con color adaptado a modo oscuro
       const yAxis = d3
         .axisLeft(yScale)
         .ticks(5)
@@ -54,21 +55,22 @@ function App() {
         .attr('transform', `translate(${margin.left},0)`)
         .call(yAxis)
         .attr('font-size', '6px')
-        .attr('color', '#94a3b8'); // Color slate-400 para que se vea en oscuro
+        .attr('color', '#848e9c'); // Gris de Binance para los ejes
 
       svg
         .selectAll('rect')
         .data(productosFiltrados)
         .join('rect')
         .attr('x', (_, i) => xScale(i.toString())!)
+        .attr('width', xScale.bandwidth())
+        // Colores de velas de Exchange: Rojo Binance y Verde Binance
+        .attr('fill', (d) =>
+          d.price < 100 ? '#f6465d' : d.price <= 300 ? '#F0B90B' : '#0ecb81'
+        )
         .attr('y', height - margin.bottom)
         .attr('height', 0)
-        .attr('width', xScale.bandwidth())
-        .attr('fill', (d) =>
-          d.price < 100 ? '#f87171' : d.price <= 300 ? '#60a5fa' : '#4ade80'
-        )
         .transition()
-        .duration(500)
+        .duration(600)
         .attr('y', (d) => yScale(d.price))
         .attr('height', (d) => height - margin.bottom - yScale(d.price));
 
@@ -78,10 +80,10 @@ function App() {
           tooltip.transition().duration(200).style('opacity', 1);
           tooltip
             .html(
-              `<strong>${d.title.substring(0, 20)}...</strong><br/>$${d.price}`
+              `<strong>${d.title.substring(0, 20)}...</strong><br/><span style="color:#F0B90B">$${d.price}</span>`
             )
-            .style('left', event.pageX + 10 + 'px')
-            .style('top', event.pageY - 28 + 'px');
+            .style('left', event.pageX + 15 + 'px')
+            .style('top', event.pageY - 40 + 'px');
         })
         .on('mouseleave', () => tooltip.style('opacity', 0));
     }
@@ -95,73 +97,89 @@ function App() {
 
   const verDetalles = (p: Producto) => {
     alert(
-      `PRODUCTO: ${p.title}\n\nVendidos: ${p.rating.count}\nValoración: ${p.rating.rate}/5\n\n${p.description}`
+      `DETALLES BINANCE-STYLE:\n\n${p.title}\nVolumen: ${p.rating.count}\nScore: ${p.rating.rate}\n\n${p.description.substring(0, 100)}...`
     );
   };
 
   return (
-    // 'dark' activa el modo oscuro para los hijos
-    <div className='dark min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 md:p-8 transition-colors duration-500'>
+    // CAMBIO A COLORES BINANCE: dark:bg-[#0b0e11] (Fondo) y acentos en #F0B90B (Amarillo)
+    <div className='dark min-h-screen bg-cyan-50/30 dark:bg-[#0b0e11] text-[#1e2329] dark:text-[#eaecef] p-4 md:p-8 font-sans transition-colors'>
       <div
         id='tooltip'
-        className='absolute opacity-0 bg-slate-800 text-white p-2 rounded shadow-lg pointer-events-none text-xs z-50'></div>
+        className='absolute opacity-0 bg-[#1e2329] text-white p-2 rounded shadow-2xl pointer-events-none text-[10px] z-50 border border-[#474d57]'></div>
 
-      <header className='max-w-5xl mx-auto mb-8 text-center'>
-        <h1 className='text-3xl font-black mb-2'>
-          DataPulse <span className='text-blue-500'>Pro</span>
+      <header className='max-w-6xl mx-auto mb-8 flex flex-col items-center'>
+        <h1 className='text-3xl font-bold tracking-tight mb-2'>
+          DataPulse <span className='text-[#F0B90B]'>Exchange</span>
         </h1>
-        <p className='text-slate-500 dark:text-slate-400 text-sm italic'>
-          Premium Analytics Dashboard
-        </p>
+        <div className='h-1 w-12 bg-[#F0B90B] rounded-full'></div>
       </header>
 
-      <main className='max-w-5xl mx-auto flex flex-col items-center'>
-        {/* GRÁFICO MÁS PEQUEÑO */}
-        <section className='w-full max-w-2xl bg-slate-50 dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 mb-6 shadow-xl'>
-          <h2 className='text-sm font-bold mb-4 px-2 opacity-70'>
-            Rendimiento de Precios
+      <main className='max-w-6xl mx-auto flex flex-col items-center'>
+        {/* Gráfico Estilo Binance */}
+        <section className='w-full max-w-2xl bg-white dark:bg-[#181a20] p-6 rounded-xl border border-slate-200 dark:border-[#2b3139] mb-6 shadow-sm'>
+          <h2 className='text-xs font-bold mb-4 uppercase tracking-widest text-[#848e9c]'>
+            Market Overview
           </h2>
-          <svg
-            ref={svgRef}
-            viewBox='0 0 300 150'
-            className='w-full h-auto'></svg>
+          {productosFiltrados.length > 0 ? (
+            <svg
+              ref={svgRef}
+              viewBox='0 0 300 150'
+              className='w-full h-auto'></svg>
+          ) : (
+            <div className='h-[150px] flex items-center justify-center text-[#848e9c] text-xs'>
+              Waiting for data...
+            </div>
+          )}
         </section>
 
-        {/* BUSCADOR DEBAJO DEL GRÁFICO */}
-        <div className='w-full max-w-md mb-12 relative group'>
+        {/* Buscador Binance-Style */}
+        <div className='w-full max-w-md mb-10 relative'>
           <input
             type='text'
-            placeholder='Filtrar catálogo...'
-            className='w-full p-3 pl-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white'
+            placeholder='Search coin or category...'
+            className='w-full p-3 pl-10 rounded-lg border border-slate-200 dark:border-[#2b3139] bg-white dark:bg-[#2b3139] focus:border-[#F0B90B] outline-none transition-all text-sm'
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
           />
-          <span className='absolute left-3 top-3.5 opacity-40'>🔍</span>
+          <span className='absolute left-3 top-3 opacity-40'>🔍</span>
         </div>
 
-        {/* GRID DE PRODUCTOS */}
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full'>
-          {productosFiltrados.map((p) => (
-            <div
-              key={p.id}
-              className='bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 flex flex-col hover:border-blue-500 transition-colors'>
-              <div className='h-32 flex justify-center mb-4 bg-white rounded-lg p-2'>
-                <img src={p.image} className='max-h-full' alt='' />
+        {/* Grid de Productos */}
+        {productosFiltrados.length > 0 ? (
+          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full'>
+            {productosFiltrados.map((p) => (
+              <div
+                key={p.id}
+                className='bg-white dark:bg-[#1e2329] border border-slate-100 dark:border-[#2b3139] p-4 rounded-lg hover:border-[#F0B90B] transition-all flex flex-col'>
+                <div className='h-32 bg-white rounded-md mb-4 p-4 flex justify-center'>
+                  <img src={p.image} alt='' className='max-h-full' />
+                </div>
+                <h3 className='font-semibold text-xs mb-2 line-clamp-1'>
+                  {p.title}
+                </h3>
+                <div className='flex justify-between items-center mt-auto'>
+                  <span className='text-lg font-bold text-[#0ecb81]'>
+                    ${p.price}
+                  </span>
+                  <button
+                    onClick={() => verDetalles(p)}
+                    className='bg-slate-100 dark:bg-[#2b3139] text-[10px] font-bold px-3 py-1.5 rounded hover:bg-[#F0B90B] hover:text-black transition-all'>
+                    TRADE
+                  </button>
+                </div>
               </div>
-              <h3 className='font-bold text-xs h-8 overflow-hidden mb-2 line-clamp-2'>
-                {p.title}
-              </h3>
-              <div className='flex justify-between items-center mt-auto'>
-                <p className='text-lg font-black text-blue-500'>${p.price}</p>
-                <button
-                  onClick={() => verDetalles(p)}
-                  className='bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-blue-600 hover:text-white transition-all'>
-                  INFO
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          /* Empty State con imagen/emoji */
+          <div className='flex flex-col items-center py-20 opacity-50'>
+            <span className='text-6xl mb-4'>📭</span>
+            <p className='text-sm font-medium'>
+              No matches found for "{busqueda}"
+            </p>
+          </div>
+        )}
       </main>
     </div>
   );
