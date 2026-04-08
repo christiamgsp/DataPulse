@@ -20,17 +20,17 @@ function App() {
   useEffect(() => {
     if (productos.length > 0 && svgRef.current) {
       const svg = d3.select(svgRef.current);
+      const tooltip = d3.select('#tooltip'); // Seleccionamos nuestro div
       svg.selectAll('*').remove();
 
       const width = 300;
       const height = 150;
-      const margin = { top: 20, right: 10, bottom: 40, left: 40 }; // Espacio para los ejes
+      const margin = { top: 20, right: 10, bottom: 40, left: 40 };
 
-      // 1. CREAR ESCALAS
       const yScale = d3
         .scaleLinear()
-        .domain([0, d3.max(productos, (d) => d.price) || 1000]) // De 0 al precio más alto
-        .range([height - margin.bottom, margin.top]); // De abajo hacia arriba
+        .domain([0, d3.max(productos, (d) => d.price) || 1000])
+        .range([height - margin.bottom, margin.top]);
 
       const xScale = d3
         .scaleBand()
@@ -38,7 +38,6 @@ function App() {
         .range([margin.left, width - margin.right])
         .padding(0.2);
 
-      // 2. DIBUJAR EJES
       const yAxis = d3
         .axisLeft(yScale)
         .ticks(5)
@@ -49,40 +48,56 @@ function App() {
         .call(yAxis)
         .attr('font-size', '6px');
 
-      // 3. DIBUJAR BARRAS (Usando las escalas)
+      // DIBUJAR BARRAS CON ANIMACIÓN E INTERACTIVIDAD
       svg
         .selectAll('rect')
         .data(productos)
         .join('rect')
         .attr('x', (_, i) => xScale(i.toString())!)
-        .attr('y', (d) => yScale(d.price))
         .attr('width', xScale.bandwidth())
-        .attr('height', (d) => height - margin.bottom - yScale(d.price))
-        .attr('fill', (d) => {
-          if (d.price < 100) return '#ef4444';
-          if (d.price <= 300) return '#3b82f6';
-          return '#22c55e';
+        .attr('fill', (d) =>
+          d.price < 100 ? '#ef4444' : d.price <= 300 ? '#3b82f6' : '#22c55e'
+        )
+        // --- ANIMACIÓN ---
+        .attr('y', height - margin.bottom) // Empiezan abajo
+        .attr('height', 0)
+        .transition()
+        .duration(800)
+        .attr('y', (d) => yScale(d.price))
+        .attr('height', (d) => height - margin.bottom - yScale(d.price));
+
+      // --- INTERACTIVIDAD (TOOLTIP) ---
+      svg
+        .selectAll('rect')
+        .on('mouseenter', (event, d) => {
+          tooltip.transition().duration(200).style('opacity', 0.9);
+          tooltip
+            .html(`<strong>${d.title}</strong><br/>Precio: $${d.price}`)
+            .style('left', event.pageX + 10 + 'px')
+            .style('top', event.pageY - 28 + 'px');
+        })
+        .on('mouseleave', () => {
+          tooltip.transition().duration(500).style('opacity', 0);
         });
 
-      // 4. ETIQUETAS ROTADAS (Ajustadas a la nueva escala)
+      // ETIQUETAS (Las mismas de antes)
       svg
         .selectAll('.label')
         .data(productos)
         .join('text')
         .attr('class', 'label')
         .attr('x', (_, i) => xScale(i.toString())! + xScale.bandwidth() / 2)
-        .attr('y', height - margin.bottom + 10)
+        .attr('y', height - margin.bottom + 5)
         .attr('transform', (_, i) => {
           const x = xScale(i.toString())! + xScale.bandwidth() / 2;
-          const y = height - margin.bottom + 10;
-          return `rotate(-45, ${x}, ${y})`; // 45 grados para que sea más fácil leer
+          const y = height - margin.bottom + 5;
+          return `rotate(-45, ${x}, ${y})`;
         })
-        .text((d) => d.title.substring(0, 10))
-        .attr('font-size', '5px')
+        .text((d) => d.title.substring(0, 8))
+        .attr('font-size', '4px')
         .attr('fill', '#475569');
     }
   }, [productos]);
-
   useEffect(() => {
     fetch('https://fakestoreapi.com/products?limit=20')
       .then((res) => res.json())
