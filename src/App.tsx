@@ -20,7 +20,6 @@ function App() {
   useEffect(() => {
     if (productos.length > 0 && svgRef.current) {
       const svg = d3.select(svgRef.current);
-
       svg.selectAll('*').remove();
 
       const width = 300;
@@ -37,8 +36,24 @@ function App() {
         .attr('width', barWidth)
         .attr('height', (d) => d.price / 10)
         .attr('fill', (d) => {
-          return d.rating.count > 200 ? '#36C055' : '#60a5fa';
+          if (d.price < 100) return '#ef4444';
+          if (d.price <= 300) return '#3b82f6';
+          return '#22c55e';
         });
+
+      svg
+        .selectAll('text')
+        .data(productos)
+        .join('text')
+
+        .attr('x', (_, i) => i * (barWidth + barPadding) + barWidth / 2)
+
+        .attr('y', (d) => height - d.price / 10 - 5)
+        .text((d) => d.title.split(' ')[0])
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '9px')
+        .attr('fill', '#475569')
+        .style('font-weight', 'bold');
     }
   }, [productos]);
 
