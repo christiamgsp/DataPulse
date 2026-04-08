@@ -45,15 +45,19 @@ function App() {
         .selectAll('text')
         .data(productos)
         .join('text')
-        .attr('x', (_, i) => i * (barWidth + barPadding) + barWidth / 2)
-        .attr('y', (d) => height - d.price / 10 - 5)
 
-        .text((d) =>
-          d.title.length > 8 ? d.title.substring(0, 8) + '...' : d.title
-        )
-        .attr('text-anchor', 'middle')
+        .attr('x', (_, i) => i * (barWidth + barPadding) + barWidth / 2)
+        .attr('y', height - 5)
+
+        .attr('transform', (_, i) => {
+          const x = i * (barWidth + barPadding) + barWidth / 2;
+          const y = height - 5;
+          return `rotate(-90, ${x}, ${y})`;
+        })
+        .text((d) => d.title.substring(0, 12))
         .attr('font-size', '6px')
-        .attr('fill', '#475569');
+        .attr('fill', '#475569')
+        .style('font-weight', 'bold');
     }
   }, [productos]);
 
