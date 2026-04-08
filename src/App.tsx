@@ -45,23 +45,22 @@ function App() {
         .selectAll('text')
         .data(productos)
         .join('text')
-
         .attr('x', (_, i) => i * (barWidth + barPadding) + barWidth / 2)
-
         .attr('y', (d) => height - d.price / 10 - 5)
-        .text((d) => d.title.split(' ')[0])
+
+        .text((d) =>
+          d.title.length > 8 ? d.title.substring(0, 8) + '...' : d.title
+        )
         .attr('text-anchor', 'middle')
-        .attr('font-size', '9px')
-        .attr('fill', '#475569')
-        .style('font-weight', 'bold');
+        .attr('font-size', '6px')
+        .attr('fill', '#475569');
     }
   }, [productos]);
 
   useEffect(() => {
-    fetch('https://fakestoreapi.com/products?limit=5')
+    fetch('https://fakestoreapi.com/products?limit=20')
       .then((res) => res.json())
       .then((data) => {
-        console.log('Datos recibidos:', data);
         setProductos(data);
       });
   }, []);
