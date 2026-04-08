@@ -24,40 +24,62 @@ function App() {
 
       const width = 300;
       const height = 150;
-      const barPadding = 5;
-      const barWidth = width / productos.length - barPadding;
+      const margin = { top: 20, right: 10, bottom: 40, left: 40 }; // Espacio para los ejes
 
+      // 1. CREAR ESCALAS
+      const yScale = d3
+        .scaleLinear()
+        .domain([0, d3.max(productos, (d) => d.price) || 1000]) // De 0 al precio más alto
+        .range([height - margin.bottom, margin.top]); // De abajo hacia arriba
+
+      const xScale = d3
+        .scaleBand()
+        .domain(productos.map((_, i) => i.toString()))
+        .range([margin.left, width - margin.right])
+        .padding(0.2);
+
+      // 2. DIBUJAR EJES
+      const yAxis = d3
+        .axisLeft(yScale)
+        .ticks(5)
+        .tickFormat((d) => `$${d}`);
+      svg
+        .append('g')
+        .attr('transform', `translate(${margin.left},0)`)
+        .call(yAxis)
+        .attr('font-size', '6px');
+
+      // 3. DIBUJAR BARRAS (Usando las escalas)
       svg
         .selectAll('rect')
         .data(productos)
         .join('rect')
-        .attr('x', (_, i) => i * (barWidth + barPadding))
-        .attr('y', (d) => height - d.price / 10)
-        .attr('width', barWidth)
-        .attr('height', (d) => d.price / 10)
+        .attr('x', (_, i) => xScale(i.toString())!)
+        .attr('y', (d) => yScale(d.price))
+        .attr('width', xScale.bandwidth())
+        .attr('height', (d) => height - margin.bottom - yScale(d.price))
         .attr('fill', (d) => {
           if (d.price < 100) return '#ef4444';
           if (d.price <= 300) return '#3b82f6';
           return '#22c55e';
         });
 
+      // 4. ETIQUETAS ROTADAS (Ajustadas a la nueva escala)
       svg
-        .selectAll('text')
+        .selectAll('.label')
         .data(productos)
         .join('text')
-
-        .attr('x', (_, i) => i * (barWidth + barPadding) + barWidth / 2)
-        .attr('y', height - 5)
-
+        .attr('class', 'label')
+        .attr('x', (_, i) => xScale(i.toString())! + xScale.bandwidth() / 2)
+        .attr('y', height - margin.bottom + 10)
         .attr('transform', (_, i) => {
-          const x = i * (barWidth + barPadding) + barWidth / 2;
-          const y = height - 5;
-          return `rotate(-90, ${x}, ${y})`;
+          const x = xScale(i.toString())! + xScale.bandwidth() / 2;
+          const y = height - margin.bottom + 10;
+          return `rotate(-45, ${x}, ${y})`; // 45 grados para que sea más fácil leer
         })
-        .text((d) => d.title.substring(0, 12))
-        .attr('font-size', '6px')
-        .attr('fill', '#475569')
-        .style('font-weight', 'bold');
+        .text((d) => d.title.substring(0, 10))
+        .attr('font-size', '5px')
+        .attr('fill', '#475569');
     }
   }, [productos]);
 
