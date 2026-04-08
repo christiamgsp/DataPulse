@@ -1,61 +1,93 @@
 import { useEffect, useState, useRef } from 'react';
 import * as d3 from 'd3';
 
-interface Producto {
+export interface Producto {
   id: number;
   title: string;
   price: number;
   description: string;
   category: string;
   image: string;
-  rating: {
-    rate: number;
-    count: number;
-  };
+  rating: { rate: number; count: number };
 }
 
 function App() {
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  const [filtroPrecio, setFiltroPrecio] = useState<'todos' | 'bajo' | 'alto'>(
+    'todos'
+  );
+  const [productoSeleccionado, setProductoSeleccionado] =
+    useState<Producto | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const productosFiltrados = productos.filter(
-    (p) =>
+  const euroFormatter = new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'EUR',
+  });
+
+  const getBinanceColor = (count: number) => {
+    if (count >= 500) return '#2ebd85';
+    if (count >= 200) return '#f0b90b';
+    return '#f6465d';
+  };
+
+  const productosFiltrados = productos.filter((p) => {
+    const coincideTexto =
       p.title.toLowerCase().includes(busqueda.toLowerCase()) ||
-      p.category.toLowerCase().includes(busqueda.toLowerCase())
-  );
+      p.category.toLowerCase().includes(busqueda.toLowerCase());
+    if (filtroPrecio === 'bajo') return coincideTexto && p.price < 50;
+    if (filtroPrecio === 'alto') return coincideTexto && p.price >= 50;
+    return coincideTexto;
+  });
+
+  const stats = {
+    valorTotal: productosFiltrados.reduce((acc, p) => acc + p.price, 0),
+    masVendido: [...productosFiltrados].sort(
+      (a, b) => b.rating.count - a.rating.count
+    )[0],
+    menosVendido: [...productosFiltrados].sort(
+      (a, b) => a.rating.count - b.rating.count
+    )[0],
+    precioMedio:
+      productosFiltrados.length > 0
+        ? productosFiltrados.reduce((acc, p) => acc + p.price, 0) /
+          productosFiltrados.length
+        : 0,
+  };
 
   useEffect(() => {
-    if (productosFiltrados.length > 0 && svgRef.current) {
+    if (!cargando && productosFiltrados.length > 0 && svgRef.current) {
       const svg = d3.select(svgRef.current);
-      const tooltip = d3.select('#tooltip');
       svg.selectAll('*').remove();
 
       const width = 300;
-      const height = 150;
-      const margin = { top: 20, right: 10, bottom: 40, left: 40 };
+      const height = 120; // Reducimos la altura interna del dibujo
+      const margin = { top: 10, right: 10, bottom: 20, left: 25 };
+
+      const maxVentas =
+        d3.max(productosFiltrados, (d) => d.rating.count) || 600;
 
       const yScale = d3
         .scaleLinear()
-        .domain([0, d3.max(productosFiltrados, (d) => d.price) || 1000])
+        .domain([0, maxVentas])
         .range([height - margin.bottom, margin.top]);
 
       const xScale = d3
         .scaleBand()
         .domain(productosFiltrados.map((_, i) => i.toString()))
         .range([margin.left, width - margin.right])
-        .padding(0.3);
+        .padding(0.4);
 
-      const yAxis = d3
-        .axisLeft(yScale)
-        .ticks(5)
-        .tickFormat((d) => `$${d}`);
       svg
         .append('g')
         .attr('transform', `translate(${margin.left},0)`)
-        .call(yAxis)
-        .attr('font-size', '6px')
-        .attr('color', '#848e9c'); // Gris de Binance para los ejes
+        .call(d3.axisLeft(yScale).ticks(5))
+        .attr('font-size', '5px')
+        .attr('color', '#848e9c')
+        .selectAll('path,line')
+        .attr('stroke', '#2b3139');
 
       svg
         .selectAll('rect')
@@ -63,123 +95,232 @@ function App() {
         .join('rect')
         .attr('x', (_, i) => xScale(i.toString())!)
         .attr('width', xScale.bandwidth())
-        // Colores de velas de Exchange: Rojo Binance y Verde Binance
-        .attr('fill', (d) =>
-          d.price < 100 ? '#f6465d' : d.price <= 300 ? '#F0B90B' : '#0ecb81'
-        )
+        .attr('fill', (d) => getBinanceColor(d.rating.count))
         .attr('y', height - margin.bottom)
         .attr('height', 0)
         .transition()
         .duration(600)
-        .attr('y', (d) => yScale(d.price))
-        .attr('height', (d) => height - margin.bottom - yScale(d.price));
-
-      svg
-        .selectAll('rect')
-        .on('mouseenter', (event, d) => {
-          tooltip.transition().duration(200).style('opacity', 1);
-          tooltip
-            .html(
-              `<strong>${d.title.substring(0, 20)}...</strong><br/><span style="color:#F0B90B">$${d.price}</span>`
-            )
-            .style('left', event.pageX + 15 + 'px')
-            .style('top', event.pageY - 40 + 'px');
-        })
-        .on('mouseleave', () => tooltip.style('opacity', 0));
+        .attr('y', (d) => yScale(d.rating.count))
+        .attr('height', (d) =>
+          Math.max(0, height - margin.bottom - yScale(d.rating.count))
+        );
     }
-  }, [productosFiltrados]);
+  }, [productosFiltrados, cargando]);
 
   useEffect(() => {
     fetch('https://fakestoreapi.com/products?limit=20')
       .then((res) => res.json())
-      .then((data) => setProductos(data));
+      .then((data) => {
+        setProductos(data);
+        setTimeout(() => setCargando(false), 800);
+      });
   }, []);
 
-  const verDetalles = (p: Producto) => {
-    alert(
-      `DETALLES BINANCE-STYLE:\n\n${p.title}\nVolumen: ${p.rating.count}\nScore: ${p.rating.rate}\n\n${p.description.substring(0, 100)}...`
-    );
-  };
-
   return (
-    // CAMBIO A COLORES BINANCE: dark:bg-[#0b0e11] (Fondo) y acentos en #F0B90B (Amarillo)
-    <div className='dark min-h-screen bg-cyan-50/30 dark:bg-[#0b0e11] text-[#1e2329] dark:text-[#eaecef] p-4 md:p-8 font-sans transition-colors'>
-      <div
-        id='tooltip'
-        className='absolute opacity-0 bg-[#1e2329] text-white p-2 rounded shadow-2xl pointer-events-none text-[10px] z-50 border border-[#474d57]'></div>
-
-      <header className='max-w-6xl mx-auto mb-8 flex flex-col items-center'>
-        <h1 className='text-3xl font-bold tracking-tight mb-2'>
-          DataPulse <span className='text-[#F0B90B]'>Exchange</span>
-        </h1>
-        <div className='h-1 w-12 bg-[#F0B90B] rounded-full'></div>
-      </header>
-
-      <main className='max-w-6xl mx-auto flex flex-col items-center'>
-        {/* Gráfico Estilo Binance */}
-        <section className='w-full max-w-2xl bg-white dark:bg-[#181a20] p-6 rounded-xl border border-slate-200 dark:border-[#2b3139] mb-6 shadow-sm'>
-          <h2 className='text-xs font-bold mb-4 uppercase tracking-widest text-[#848e9c]'>
-            Market Overview
-          </h2>
-          {productosFiltrados.length > 0 ? (
-            <svg
-              ref={svgRef}
-              viewBox='0 0 300 150'
-              className='w-full h-auto'></svg>
-          ) : (
-            <div className='h-[150px] flex items-center justify-center text-[#848e9c] text-xs'>
-              Waiting for data...
+    <div className='dark min-h-screen bg-[#0b0e11] text-[#eaecef] p-4 md:p-6 font-sans'>
+      {productoSeleccionado && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm'>
+          <div className='bg-[#1e2329] border border-[#474d57] w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl'>
+            <div className='p-6 flex flex-col md:flex-row gap-6'>
+              <div className='w-full md:w-1/2 bg-white rounded-xl p-4 flex items-center justify-center'>
+                <img
+                  src={productoSeleccionado.image}
+                  alt=''
+                  className='max-h-48 object-contain'
+                />
+              </div>
+              <div className='w-full md:w-1/2 flex flex-col'>
+                <h2 className='text-xl font-bold mb-2 text-[#f0b90b]'>
+                  {productoSeleccionado.title}
+                </h2>
+                <p className='text-[10px] text-[#848e9c] uppercase mb-4'>
+                  {productoSeleccionado.category}
+                </p>
+                <div className='space-y-3 mb-6'>
+                  <div className='flex justify-between border-b border-[#2b3139] pb-1'>
+                    <span className='text-xs text-[#848e9c] font-bold'>
+                      Ventas:
+                    </span>
+                    <span
+                      className='text-xs font-bold'
+                      style={{
+                        color: getBinanceColor(
+                          productoSeleccionado.rating.count
+                        ),
+                      }}>
+                      {productoSeleccionado.rating.count} uds.
+                    </span>
+                  </div>
+                  <div className='flex justify-between border-b border-[#2b3139] pb-1'>
+                    <span className='text-xs text-[#848e9c] font-bold'>
+                      Precio:
+                    </span>
+                    <span className='text-xs font-bold text-white'>
+                      {euroFormatter.format(productoSeleccionado.price)}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setProductoSeleccionado(null)}
+                  className='mt-auto bg-[#f0b90b] text-black font-bold py-2 rounded-lg'>
+                  CERRAR PANEL
+                </button>
+              </div>
             </div>
-          )}
-        </section>
+          </div>
+        </div>
+      )}
 
-        {/* Buscador Binance-Style */}
-        <div className='w-full max-w-md mb-10 relative'>
-          <input
-            type='text'
-            placeholder='Search coin or category...'
-            className='w-full p-3 pl-10 rounded-lg border border-slate-200 dark:border-[#2b3139] bg-white dark:bg-[#2b3139] focus:border-[#F0B90B] outline-none transition-all text-sm'
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
-          <span className='absolute left-3 top-3 opacity-40'>🔍</span>
+      <main className='max-w-7xl mx-auto'>
+        <div className='grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4 mb-4 items-start'>
+          {/* ASIDE */}
+          <div className='flex flex-col gap-2'>
+            <div className='bg-[#181a20] p-4 rounded-xl border border-[#2b3139] shadow-sm'>
+              <p className='text-[9px] text-[#848e9c] font-bold uppercase tracking-tighter'>
+                VALOR TOTAL
+              </p>
+              <p className='text-2xl font-black text-[#2ebd85]'>
+                {euroFormatter.format(stats.valorTotal)}
+              </p>
+            </div>
+            <div className='bg-[#181a20] p-4 rounded-xl border border-[#2b3139] shadow-sm'>
+              <p className='text-[9px] text-[#848e9c] font-bold uppercase tracking-tighter'>
+                LÍDER EN VENTAS
+              </p>
+              <p className='text-[11px] font-bold text-[#f0b90b] truncate mt-1'>
+                {stats.masVendido?.title}
+              </p>
+              <p className='text-[9px] text-[#2ebd85] font-bold'>
+                ▲ {stats.masVendido?.rating.count} unidades
+              </p>
+            </div>
+            <div className='bg-[#181a20] p-4 rounded-xl border border-[#2b3139] shadow-sm'>
+              <p className='text-[9px] text-[#848e9c] font-bold uppercase tracking-tighter'>
+                PEOR RENDIMIENTO
+              </p>
+              <p className='text-[11px] font-bold text-[#f6465d] truncate mt-1'>
+                {stats.menosVendido?.title}
+              </p>
+              <p className='text-[9px] text-[#f6465d] font-bold'>
+                ▼ {stats.menosVendido?.rating.count} unidades
+              </p>
+            </div>
+            <div className='bg-[#181a20] p-4 rounded-xl border border-[#2b3139] shadow-sm'>
+              <p className='text-[9px] text-[#848e9c] font-bold uppercase tracking-tighter'>
+                PRECIO PROMEDIO
+              </p>
+              <p className='text-xl font-black text-gray-200'>
+                {euroFormatter.format(stats.precioMedio)}
+              </p>
+            </div>
+          </div>
+
+          {/* DASHBOARD Y BUSCADOR */}
+          <div className='flex flex-col gap-4'>
+            <div className='bg-[#181a20] p-5 rounded-xl border border-[#2b3139] relative h-[300px] flex flex-col shadow-md overflow-hidden'>
+              <header className='flex justify-between items-center mb-2'>
+                <h3 className='text-[10px] font-black text-[#848e9c] tracking-widest uppercase'>
+                  VOLUMEN DE ACTIVOS
+                </h3>
+                <div className='flex gap-3 text-[9px] font-bold'>
+                  <span className='flex items-center gap-1'>
+                    <div className='w-1.5 h-1.5 bg-[#2ebd85] rounded-full'></div>{' '}
+                    +500
+                  </span>
+                  <span className='flex items-center gap-1'>
+                    <div className='w-1.5 h-1.5 bg-[#f0b90b] rounded-full'></div>{' '}
+                    200-500
+                  </span>
+                  <span className='flex items-center gap-1'>
+                    <div className='w-1.5 h-1.5 bg-[#f6465d] rounded-full'></div>{' '}
+                    -200
+                  </span>
+                </div>
+              </header>
+              <div className='flex-1 w-full flex items-center'>
+                {!cargando && productosFiltrados.length > 0 ? (
+                  <svg
+                    ref={svgRef}
+                    viewBox='0 0 300 120'
+                    preserveAspectRatio='none'
+                    className='w-full h-full'></svg>
+                ) : (
+                  !cargando && (
+                    <div className='w-full text-center text-[#848e9c] italic text-xs'>
+                      Cargando datos del mercado...
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+
+            <div className='flex flex-col gap-3'>
+              <div className='flex justify-center gap-2'>
+                {['todos', 'bajo', 'alto'].map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFiltroPrecio(f as any)}
+                    className={`px-10 py-2 text-[10px] font-black rounded-lg border uppercase transition-all ${filtroPrecio === f ? 'bg-[#f0b90b] text-black border-[#f0b90b]' : 'bg-[#1e2329] border-[#474d57] text-[#848e9c]'}`}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+              <input
+                type='text'
+                placeholder='Escribe para buscar activos en el mercado...'
+                className='w-full p-4 rounded-xl bg-[#1e2329] border border-[#474d57] outline-none focus:border-[#f0b90b] text-sm text-white placeholder:text-gray-600 shadow-inner'
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Grid de Productos */}
-        {productosFiltrados.length > 0 ? (
-          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full'>
-            {productosFiltrados.map((p) => (
-              <div
-                key={p.id}
-                className='bg-white dark:bg-[#1e2329] border border-slate-100 dark:border-[#2b3139] p-4 rounded-lg hover:border-[#F0B90B] transition-all flex flex-col'>
-                <div className='h-32 bg-white rounded-md mb-4 p-4 flex justify-center'>
-                  <img src={p.image} alt='' className='max-h-full' />
-                </div>
-                <h3 className='font-semibold text-xs mb-2 line-clamp-1'>
-                  {p.title}
-                </h3>
-                <div className='flex justify-between items-center mt-auto'>
-                  <span className='text-lg font-bold text-[#0ecb81]'>
-                    ${p.price}
-                  </span>
-                  <button
-                    onClick={() => verDetalles(p)}
-                    className='bg-slate-100 dark:bg-[#2b3139] text-[10px] font-bold px-3 py-1.5 rounded hover:bg-[#F0B90B] hover:text-black transition-all'>
-                    TRADE
-                  </button>
-                </div>
+        {/* RESULTADOS ABAJO */}
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6'>
+          {productosFiltrados.map((p) => (
+            <div
+              key={p.id}
+              className='bg-[#181a20] border border-[#2b3139] p-4 rounded-xl flex flex-col hover:border-[#f0b90b] transition-all group'>
+              <div className='h-32 bg-white rounded-lg mb-3 flex justify-center p-3'>
+                <img
+                  src={p.image}
+                  className='max-h-full group-hover:scale-105 transition-transform'
+                  alt=''
+                />
               </div>
-            ))}
-          </div>
-        ) : (
-          /* Empty State con imagen/emoji */
-          <div className='flex flex-col items-center py-20 opacity-50'>
-            <span className='text-6xl mb-4'>📭</span>
-            <p className='text-sm font-medium'>
-              No matches found for "{busqueda}"
-            </p>
-          </div>
-        )}
+              <div className='flex justify-between items-center mb-1'>
+                <span
+                  className='text-[9px] font-black'
+                  style={{ color: getBinanceColor(p.rating.count) }}>
+                  {p.rating.count >= 500
+                    ? '★★★ TOP'
+                    : p.rating.count >= 200
+                      ? '★★ MED'
+                      : '★ LOW'}
+                </span>
+                <span className='text-[9px] text-[#848e9c] font-bold uppercase'>
+                  VOL: {p.rating.count}
+                </span>
+              </div>
+              <h3 className='text-xs font-bold mb-4 line-clamp-2 h-8 leading-tight'>
+                {p.title}
+              </h3>
+              <div className='mt-auto pt-3 border-t border-[#2b3139] flex justify-between items-center'>
+                <span
+                  className='text-base font-black'
+                  style={{ color: getBinanceColor(p.rating.count) }}>
+                  {euroFormatter.format(p.price)}
+                </span>
+                <button
+                  onClick={() => setProductoSeleccionado(p)}
+                  className='bg-[#2b3139] text-[9px] font-black px-3 py-1.5 rounded-md hover:bg-[#f0b90b] hover:text-black'>
+                  INFO
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </main>
     </div>
   );
