@@ -15,6 +15,51 @@ export interface Producto {
   rating: { rate: number; count: number };
 }
 
+const GENERAR_RESPALDO = (): Producto[] => {
+  const nombres = [
+    'Procesador Quantum X1',
+    'Servidor Cloud Ultra',
+    'Sensor Bio-Métrico',
+    'Módulo de Red Fibra',
+    'Disco Sólido Titanio',
+    'Cámara Vigilancia IA',
+    'Router Mesh Pro',
+    'GPU Render Master',
+    'Panel Solar Portátil',
+    'Teclado Mecánico Neon',
+    'Monitor Curvo 4K',
+    'Cable Datos Oro',
+    'Batería Larga Duración',
+    'Hub USB-C Industrial',
+    'Smartphone Encriptado',
+    'Tablet Gráfica Pro',
+    'Altavoz Inteligente',
+    'Reloj Biométrico',
+    'Kit Robótica Avanzado',
+    'Gafas Realidad Virtual',
+  ];
+  const categorias = [
+    'Electrónica',
+    'Hardware',
+    'Infraestructura',
+    'Periféricos',
+  ];
+
+  return nombres.map((nombre, i) => ({
+    id: 900 + i,
+    title: nombre,
+    price: Math.floor(Math.random() * (4500 - 20) + 20),
+    description:
+      'Componente de alta tecnología diseñado para optimizar el flujo de trabajo y garantizar la máxima eficiencia en entornos profesionales.',
+    category: categorias[i % categorias.length],
+    image: `https://picsum.photos/seed/${i + 50}/400/400`,
+    rating: {
+      rate: parseFloat((Math.random() * (5 - 3) + 3).toFixed(1)),
+      count: Math.floor(Math.random() * 2500),
+    },
+  }));
+};
+
 const euroFormatter = new Intl.NumberFormat('es-ES', {
   style: 'currency',
   currency: 'EUR',
@@ -31,45 +76,67 @@ function App() {
   const isDark = useTheme();
 
   useEffect(() => {
-    fetch('https://fakestoreapi.com/products?limit=20')
-      .then((res) => res.json())
-      .then((data) => {
-        setProductos(data);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('https://fakestoreapi.com/products');
+        if (!response.ok) throw new Error('API Fallida');
+        const data = await response.json();
+
+        const dataVariada = data.map((p: Producto, i: number) => ({
+          ...p,
+          price: i % 2 === 0 ? p.price * 12 : p.price,
+          rating: {
+            ...p.rating,
+            count: Math.floor(Math.random() * 1800),
+          },
+        }));
+
+        setProductos(dataVariada);
+      } catch (error) {
+        setProductos(GENERAR_RESPALDO());
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    fetchData();
   }, []);
 
   const filtrados = useMemo(() => {
+    const query = busqueda.toLowerCase().trim();
     return productos.filter((p) => {
-      const match =
-        p.title.toLowerCase().includes(busqueda.toLowerCase()) ||
-        p.category.toLowerCase().includes(busqueda.toLowerCase());
-      if (filtroPrecio === 'bajo') return match && p.price < 50;
-      if (filtroPrecio === 'alto') return match && p.price >= 50;
+      const matchName = p.title.toLowerCase().includes(query);
+      const matchCat = p.category.toLowerCase().includes(query);
+      const match = matchName || matchCat;
+
+      if (filtroPrecio === 'bajo') return match && p.price < 1000;
+      if (filtroPrecio === 'alto') return match && p.price >= 1000;
       return match;
     });
   }, [productos, busqueda, filtroPrecio]);
 
-  const stats = useMemo(
-    () => ({
-      total: filtrados.reduce((acc, p) => acc + p.price, 0),
-      top: [...filtrados].sort((a, b) => b.rating.count - a.rating.count)[0],
-      low: [...filtrados].sort((a, b) => a.rating.count - b.rating.count)[0],
-      avg: filtrados.length
-        ? filtrados.reduce((acc, p) => acc + p.price, 0) / filtrados.length
-        : 0,
-    }),
-    [filtrados]
-  );
+  const stats = useMemo(() => {
+    if (productos.length === 0)
+      return { total: 0, top: null, low: null, avg: 0 };
+    const total = productos.reduce((acc, p) => acc + p.price, 0);
+    const sorted = [...productos].sort(
+      (a, b) => (b.rating?.count || 0) - (a.rating?.count || 0)
+    );
+    return {
+      total,
+      top: sorted[0],
+      low: sorted[sorted.length - 1],
+      avg: total / productos.length,
+    };
+  }, [productos]);
 
   return (
     <div
       className={`min-h-screen transition-colors duration-500 ${isDark ? 'bg-[#0b0e11] text-[#eaecef]' : 'bg-[#f8fafc] text-[#0f172a]'}`}>
       <Header />
-
       <main className='max-w-7xl mx-auto p-4 md:p-8'>
         <div className='grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6'>
-          <div className='space-y-4'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4'>
             <StatCard
               isDark={isDark}
               label='VALOR TOTAL'
@@ -86,9 +153,9 @@ function App() {
             />
             <StatCard
               isDark={isDark}
-              label='LÍDER EN VENTAS'
+              label='MÁS VENDIDO'
               color='text-[#f0b90b]'
-              val={loading ? 'Cargando...' : stats.top?.title || '---'}
+              val={loading ? '...' : stats.top?.title.slice(0, 15) + '...'}
               icon={
                 <svg
                   className='w-10 h-10'
@@ -100,9 +167,9 @@ function App() {
             />
             <StatCard
               isDark={isDark}
-              label='PEOR RENDIMIENTO'
+              label='MENOS VENTAS'
               color='text-[#f6465d]'
-              val={loading ? 'Cargando...' : stats.low?.title || '---'}
+              val={loading ? '...' : stats.low?.title.slice(0, 15) + '...'}
               icon={
                 <svg
                   className='w-10 h-10'
@@ -114,8 +181,8 @@ function App() {
             />
             <StatCard
               isDark={isDark}
-              label='PRECIO PROMEDIO'
-              color={isDark ? 'text-gray-100' : 'text-slate-900'}
+              label='PROMEDIO'
+              color={isDark ? 'text-white' : 'text-slate-900'}
               val={loading ? '---' : euroFormatter.format(stats.avg)}
               icon={
                 <svg
@@ -126,40 +193,40 @@ function App() {
                 </svg>
               }
             />
-
             <div
-              className={`${isDark ? 'bg-[#181a20] border-[#2b3139]' : 'bg-white border-gray-200'} p-4 rounded-2xl border flex flex-col gap-2`}>
+              className={`${isDark ? 'bg-[#181a20] border-[#2b3139]' : 'bg-white border-gray-200'} p-4 rounded-2xl border flex flex-row lg:flex-col gap-2 mt-4`}>
               {['todos', 'bajo', 'alto'].map((f) => (
                 <button
                   key={f}
                   onClick={() => setFiltroPrecio(f as any)}
-                  className={`py-2 rounded-lg text-[10px] font-black uppercase transition-all ${filtroPrecio === f ? 'bg-[#f0b90b] text-black' : isDark ? 'bg-[#0b0e11] text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
-                  {f}
+                  className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${filtroPrecio === f ? 'bg-[#f0b90b] text-black' : isDark ? 'bg-[#0b0e11] text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
+                  {f === 'bajo'
+                    ? '< 1000€'
+                    : f === 'alto'
+                      ? '> 1000€'
+                      : 'Todos'}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className='flex flex-col gap-6'>
+          <div className='flex flex-col gap-6 overflow-hidden'>
             <div
-              className={`${isDark ? 'bg-[#181a20] border-[#2b3139]' : 'bg-white border-gray-200'} p-8 rounded-3xl border shadow-xl flex flex-col min-h-[500px]`}>
-              <h3 className='text-xs font-black text-[#848e9c] mb-8 tracking-widest uppercase'>
-                Análisis de Volumen de Activos
-              </h3>
+              className={`${isDark ? 'bg-[#181a20] border-[#2b3139]' : 'bg-white border-gray-200'} p-6 rounded-3xl border shadow-xl min-h-[450px] flex flex-col`}>
               <div className='flex-1 relative'>
                 {loading ? (
-                  <div className='w-full h-full flex items-center justify-center animate-pulse bg-gray-500/5 rounded-2xl'>
-                    <p className='text-[10px] font-black text-[#848e9c]'>
-                      INICIALIZANDO GRÁFICO...
-                    </p>
+                  <div className='h-full flex items-center justify-center animate-pulse'>
+                    <span className='text-[10px] font-black text-[#848e9c] text-center uppercase tracking-widest'>
+                      Analizando Activos...
+                    </span>
                   </div>
                 ) : filtrados.length > 0 ? (
                   <Chart data={filtrados} isDark={isDark} />
                 ) : (
-                  <div className='h-full flex flex-col items-center justify-center opacity-40'>
-                    <span className='text-5xl mb-2'>🔍</span>
-                    <p className='font-black text-xs uppercase'>
-                      No se encontraron activos
+                  <div className='h-full flex flex-col items-center justify-center opacity-40 text-center'>
+                    <span className='text-4xl mb-4'>⚠️</span>
+                    <p className='font-black text-xs uppercase tracking-widest'>
+                      No se encontró el activo
                     </p>
                   </div>
                 )}
@@ -167,8 +234,8 @@ function App() {
             </div>
             <input
               type='text'
-              placeholder='Escribe para buscar activos en el mercado...'
-              className={`w-full p-5 rounded-2xl outline-none border transition-all ${isDark ? 'bg-[#181a20] border-[#2b3139] focus:border-[#f0b90b]' : 'bg-white border-gray-200 focus:border-orange-500 shadow-md'}`}
+              placeholder='Buscar activos...'
+              className={`w-full p-5 rounded-2xl outline-none border transition-all ${isDark ? 'bg-[#181a20] border-[#2b3139] text-white focus:border-[#f0b90b]' : 'bg-white border-gray-200 focus:border-orange-500 shadow-md'}`}
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
             />
@@ -176,88 +243,72 @@ function App() {
         </div>
 
         <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-12'>
-          {loading
-            ? Array(8)
-                .fill(0)
-                .map((_, i) => <SkeletonCard key={i} isDark={isDark} />)
-            : filtrados.map((p) => (
-                <div
-                  key={p.id}
-                  className={`${isDark ? 'bg-[#181a20] border-[#2b3139]' : 'bg-white border-gray-200 shadow-sm'} border p-5 rounded-2xl hover:-translate-y-1 transition-all group`}>
-                  <div className='h-40 bg-white rounded-xl mb-4 flex justify-center p-4 shadow-inner'>
-                    <img
-                      src={p.image}
-                      className='max-h-full group-hover:scale-110 transition-transform'
-                      alt=''
-                    />
-                  </div>
-                  <h3 className='text-xs font-bold mb-4 line-clamp-2 h-9 opacity-90'>
-                    {p.title}
-                  </h3>
-                  <div className='flex justify-between items-center pt-4 border-t border-gray-500/10'>
-                    <span
-                      className='text-lg font-black'
-                      style={{
-                        color: p.rating.count >= 200 ? '#2ebd85' : '#f6465d',
-                      }}>
-                      {euroFormatter.format(p.price)}
-                    </span>
-                    <button
-                      onClick={() => setSelected(p)}
-                      className={`text-[10px] font-black px-4 py-2 rounded-lg ${isDark ? 'bg-[#2b3139] text-white hover:bg-[#f0b90b] hover:text-black' : 'bg-gray-100 text-gray-600 hover:bg-orange-500 hover:text-white'}`}>
-                      INFO
-                    </button>
-                  </div>
+          {loading ? (
+            Array(8)
+              .fill(0)
+              .map((_, i) => <SkeletonCard key={i} isDark={isDark} />)
+          ) : filtrados.length > 0 ? (
+            filtrados.map((p) => (
+              <div
+                key={p.id}
+                className={`${isDark ? 'bg-[#181a20] border-[#2b3139]' : 'bg-white border-gray-200 shadow-sm'} border p-5 rounded-2xl hover:-translate-y-1 transition-all group`}>
+                <div className='h-40 bg-white rounded-xl mb-4 flex justify-center p-4'>
+                  <img
+                    src={p.image}
+                    className='max-h-full object-contain'
+                    alt=''
+                  />
                 </div>
-              ))}
+                <h3 className='text-[11px] font-bold mb-4 line-clamp-2'>
+                  {p.title}
+                </h3>
+                <div className='flex justify-between items-center pt-4 border-t border-gray-500/10'>
+                  <span className='text-lg font-black'>
+                    {euroFormatter.format(p.price)}
+                  </span>
+                  <button
+                    onClick={() => setSelected(p)}
+                    className={`text-[10px] font-black px-4 py-2 rounded-lg ${isDark ? 'bg-[#2b3139] text-white hover:bg-[#f0b90b] hover:text-black' : 'bg-gray-100 text-gray-600'}`}>
+                    INFO
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className='col-span-full py-20 text-center border-2 border-dashed border-gray-500/10 rounded-3xl opacity-30'>
+              <p className='text-xs font-black uppercase'>
+                Sin resultados en el inventario activo
+              </p>
+            </div>
+          )}
         </div>
       </main>
 
       {selected && (
         <div
-          className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm'
+          className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md'
           onClick={() => setSelected(null)}>
           <div
-            className={`${isDark ? 'bg-[#1e2329] border-[#474d57]' : 'bg-white border-gray-200'} border w-full max-w-2xl rounded-3xl p-8 shadow-2xl animate-in zoom-in duration-200`}
+            className={`${isDark ? 'bg-[#1e2329] border-[#2b3139]' : 'bg-white border-gray-200'} border w-full max-w-xl rounded-3xl p-8 shadow-2xl`}
             onClick={(e) => e.stopPropagation()}>
-            <div className='flex flex-col md:flex-row gap-8'>
-              <div className='bg-white rounded-2xl p-4 w-full md:w-1/2 flex items-center justify-center shadow-inner'>
-                <img
-                  src={selected.image}
-                  className='max-h-60 object-contain'
-                  alt=''
-                />
-              </div>
-              <div className='flex-1'>
-                <h2
-                  className={`text-2xl font-black ${isDark ? 'text-[#f0b90b]' : 'text-orange-600'}`}>
-                  {selected.title}
-                </h2>
-                <p className='text-gray-500 text-[10px] font-bold uppercase mt-1 mb-4'>
-                  {selected.category}
-                </p>
-                <p className='text-sm opacity-70 mb-6'>
-                  {selected.description}
-                </p>
-                <div className='border-t border-gray-500/10 pt-4 space-y-2'>
-                  <div className='flex justify-between text-xs font-bold'>
-                    <span>Ventas:</span>{' '}
-                    <span className='text-[#2ebd85]'>
-                      {selected.rating.count} uds
-                    </span>
-                  </div>
-                  <div className='flex justify-between text-xs font-bold'>
-                    <span>Precio:</span>{' '}
-                    <span>{euroFormatter.format(selected.price)}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelected(null)}
-                  className='w-full mt-6 py-3 bg-[#f0b90b] text-black font-black rounded-xl hover:bg-[#e0a808]'>
-                  CERRAR
-                </button>
-              </div>
+            <h2
+              className={`text-xl font-black mb-4 ${isDark ? 'text-[#f0b90b]' : 'text-orange-600'}`}>
+              {selected.title}
+            </h2>
+            <p className='text-sm opacity-70 mb-6'>{selected.description}</p>
+            <div className='flex justify-between items-center border-t border-gray-500/10 pt-4'>
+              <span className='font-black text-xl'>
+                {euroFormatter.format(selected.price)}
+              </span>
+              <span className='text-[10px] font-bold uppercase text-[#2ebd85]'>
+                {selected.rating.count} Ventas
+              </span>
             </div>
+            <button
+              onClick={() => setSelected(null)}
+              className='w-full mt-8 py-4 bg-[#f0b90b] text-black font-black rounded-xl uppercase tracking-widest'>
+              Cerrar Vista
+            </button>
           </div>
         </div>
       )}
